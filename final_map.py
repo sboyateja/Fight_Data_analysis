@@ -130,27 +130,30 @@ for _, row in data.head(50).iterrows():
         yshift=10
     )
 
-# Highlight selected city
+# Highlight selected city without overriding color
 if selected_city != "None":
     selected_data = data[data['Origin City Name'] == selected_city]
     if not selected_data.empty:
+        # Plot the same way as others, but with a white border for emphasis
         fig.add_trace(go.Scattergeo(
             lon=selected_data['longitude'],
             lat=selected_data['latitude'],
             text=selected_data['hover_text'],
             marker=dict(
-                size=25,
-                color=selected_data['Total Passengers'],
+                size=35,
+                color=selected_data['Total Passengers'],  # Keeps Viridis scale
                 colorscale='Viridis',
-                line=dict(width=3, color='white'),
+                showscale=False,  # No second colorbar
+                line=dict(width=2.5, color='white'),
                 sizemode='area',
                 sizeref=2.*max(data['Total Passengers'])/(30.**2),
-                sizemin=4
+                sizemin=6
             ),
-            name=f"Selected: {selected_city}",
             hoverinfo='text',
+            name=f"Selected: {selected_city}",
             mode='markers'
         ))
+
 
 fig.update_geos(
     showland=True,
