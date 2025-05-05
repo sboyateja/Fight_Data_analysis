@@ -128,7 +128,7 @@ def create_map(selected_year=None, top_n=None):
 
     fig.update_layout(
     margin={"r": 0, "t": 40, "l": 0, "b": 0},
-    height=800  # Increased from 600 to 800
+    height=600  # Increased from 600
 )
     return fig
 
