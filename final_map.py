@@ -74,7 +74,7 @@ selected_year = st.sidebar.selectbox("Select Year", ["All Years"] + years)
 city_list = annual_data['Origin City Name'].unique()
 selected_city = st.sidebar.selectbox("Select City (highlight)", ["None"] + sorted(city_list))
 
-top_n = st.sidebar.selectbox("Show Top N Cities", [5, 10, 15, 20, 50, "All"])
+top_n = st.sidebar.selectbox("Select No of Cities", ["Top 5", "Top 10", "Top 15", "Top 20", "Top 50", "All"])
 
 # ----------------------------
 # Filter data
