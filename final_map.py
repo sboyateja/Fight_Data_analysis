@@ -136,7 +136,7 @@ def create_map(selected_year=None, top_n=None):
     return fig
 
 # 3. Dash App Setup
-app = Dash(__name__)
+app = dash.Dash(__name__)
 
 app.layout = html.Div([
     html.H1("Air Passenger Traffic by City", style={'textAlign': 'center'}),
@@ -194,5 +194,5 @@ def update_map(selected_year, top_n):
     return create_map(selected_year, top_n)
 
 # 5. Run App
-if __name__ == '__main__':
-    app.run(debug=True)
+if __name__ == "__main__":
+    app.run_server(debug=True)
