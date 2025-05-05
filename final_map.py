@@ -56,6 +56,12 @@ def load_data():
 
     return df, annual_data
 
+# Helper to parse "Top N"
+def parse_topn(value):
+    if isinstance(value, str) and value.startswith("Top"):
+        return int(value.replace("Top", "").strip())
+    return None
+
 df, annual_data = load_data()
 
 # Sidebar filters
@@ -63,7 +69,7 @@ st.sidebar.header("Filters")
 year_options = ['All Years'] + sorted(df['Year'].unique().astype(str).tolist())
 selected_year = st.sidebar.selectbox("Select Year", options=year_options)
 
-topn_options = ['All Cities',"Top 5","Top 10","Top 15","Top 20", "Top 50"]
+topn_options = ['All Cities', "Top 5", "Top 10", "Top 15", "Top 20", "Top 50"]
 selected_topn = st.sidebar.selectbox("Show Top N Cities", options=topn_options)
 
 # Map creation
@@ -82,7 +88,7 @@ def create_map(selected_year=None, top_n=None):
     data['Rank'] = data['Total Passengers'].rank(method='min', ascending=False).astype(int)
 
     if top_n:
-        data = data.head(int(top_n))
+        data = data.head(top_n)
 
     data['Avg Fare'] = data['Avg Fare'].fillna(100)
 
@@ -108,7 +114,7 @@ def create_map(selected_year=None, top_n=None):
         color_continuous_scale=px.colors.sequential.Viridis
     )
 
-    max_annotations = 50 if top_n is None else min(int(top_n), 50)
+    max_annotations = min(len(data), 50)
     for _, row in data.head(max_annotations).iterrows():
         fig.add_annotation(
             x=row['longitude'],
@@ -127,19 +133,19 @@ def create_map(selected_year=None, top_n=None):
 
     fig.update_layout(
         margin={"r": 0, "t": 20, "l": 0, "b": 0},
-        height=600,  # Use more vertical space
+        height=800,  # Increased map height
         coloraxis_colorbar=dict(title="Total Passengers")
     )
 
     return fig
 
-# Main layout: title and map side by side
+# Main layout
 st.markdown("<h1 style='margin-bottom: -30px;'>Air Passenger Traffic by City</h1>", unsafe_allow_html=True)
 st.caption(f"Passenger Traffic by City {'in ' + str(selected_year) if selected_year != 'All Years' else '(All Years)'}")
 
 with st.spinner("Generating map..."):
     year_val = None if selected_year == 'All Years' else selected_year
-    topn_val = None if selected_topn == 'All Cities' else selected_topn
+    topn_val = parse_topn(selected_topn)
     fig = create_map(year_val, topn_val)
     st.plotly_chart(fig, use_container_width=True)
 
