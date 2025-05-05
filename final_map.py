@@ -127,7 +127,7 @@ def create_map(selected_year=None, top_n=None):
 
     fig.update_layout(
         margin={"r": 0, "t": 20, "l": 0, "b": 0},
-        height=900,  # Use more vertical space
+        height=600,  # Use more vertical space
         coloraxis_colorbar=dict(title="Total Passengers")
     )
 
