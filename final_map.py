@@ -63,7 +63,7 @@ st.sidebar.header("Filters")
 year_options = ['All Years'] + sorted(df['Year'].unique().astype(str).tolist())
 selected_year = st.sidebar.selectbox("Select Year", options=year_options)
 
-topn_options = ['All Cities', 5, 10, 15, 20, 50]
+topn_options = ['All Cities',"Top 5","Top 10","Top 15","Top 20", "Top 50"]
 selected_topn = st.sidebar.selectbox("Show Top N Cities", options=topn_options)
 
 # Map creation
