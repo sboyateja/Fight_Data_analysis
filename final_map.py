@@ -138,7 +138,7 @@ with st.spinner("Generating map..."):
     topn_val = None if selected_topn == 'All Cities' else selected_topn
     fig = create_map(year_val, topn_val)
     st.plotly_chart(fig, use_container_width=True)
-    st.set_page_config(layout="wide")
+    
 
 # 5. Notes
 st.markdown("""
