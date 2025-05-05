@@ -2,7 +2,10 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-# 1. Load and clean data
+# 1. Streamlit page configuration
+st.set_page_config(layout="wide")  # Full width layout
+
+# 2. Load and clean data
 @st.cache_data
 def load_data():
     df = pd.read_csv('Summary_By_Origin_Airport.csv', low_memory=False)
@@ -55,10 +58,9 @@ def load_data():
 
 df, annual_data = load_data()
 
-# 2. UI in Streamlit
+# 3. Sidebar Filters
 st.title("Air Passenger Traffic by City")
 
-# Sidebar Filters
 st.sidebar.header("Filters")
 year_options = ['All Years'] + sorted(df['Year'].unique().astype(str).tolist())
 selected_year = st.sidebar.selectbox("Select Year", options=year_options)
@@ -66,7 +68,7 @@ selected_year = st.sidebar.selectbox("Select Year", options=year_options)
 topn_options = ['All Cities', 5, 10, 15, 20, 50]
 selected_topn = st.sidebar.selectbox("Show Top N Cities", options=topn_options)
 
-# 3. Map Generation Function
+# 4. Map Generation
 def create_map(selected_year=None, top_n=None):
     if selected_year:
         data = annual_data[annual_data['Year'] == int(selected_year)].copy()
@@ -127,20 +129,20 @@ def create_map(selected_year=None, top_n=None):
     )
 
     fig.update_layout(
-    margin={"r": 0, "t": 40, "l": 0, "b": 0},
-    height=800  # Increased from 600
-)
+        margin={"r": 0, "t": 40, "l": 0, "b": 0},
+        height=1000  # Increased height for bigger map
+    )
+
     return fig
 
-# 4. Display Map
+# 5. Display Map
 with st.spinner("Generating map..."):
     year_val = None if selected_year == 'All Years' else selected_year
     topn_val = None if selected_topn == 'All Cities' else selected_topn
     fig = create_map(year_val, topn_val)
     st.plotly_chart(fig, use_container_width=True)
-    
 
-# 5. Notes
+# 6. Info
 st.markdown("""
 - Use the sidebar to filter by year and number of top cities.
 - Bubble size represents total passenger volume.
