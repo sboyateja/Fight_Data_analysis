@@ -2,10 +2,10 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-# 1. Streamlit page configuration
-st.set_page_config(layout="wide")  # Full width layout
+# Set full width layout
+st.set_page_config(layout="wide")
 
-# 2. Load and clean data
+# Load and clean data
 @st.cache_data
 def load_data():
     df = pd.read_csv('Summary_By_Origin_Airport.csv', low_memory=False)
@@ -58,9 +58,7 @@ def load_data():
 
 df, annual_data = load_data()
 
-# 3. Sidebar Filters
-st.title("Air Passenger Traffic by City")
-
+# Sidebar filters
 st.sidebar.header("Filters")
 year_options = ['All Years'] + sorted(df['Year'].unique().astype(str).tolist())
 selected_year = st.sidebar.selectbox("Select Year", options=year_options)
@@ -68,7 +66,7 @@ selected_year = st.sidebar.selectbox("Select Year", options=year_options)
 topn_options = ['All Cities', 5, 10, 15, 20, 50]
 selected_topn = st.sidebar.selectbox("Show Top N Cities", options=topn_options)
 
-# 4. Map Generation
+# Map creation
 def create_map(selected_year=None, top_n=None):
     if selected_year:
         data = annual_data[annual_data['Year'] == int(selected_year)].copy()
@@ -106,7 +104,6 @@ def create_map(selected_year=None, top_n=None):
         hover_name='hover_text',
         scope='usa',
         projection='albers usa',
-        title=f"Passenger Traffic by City {'in ' + str(selected_year) if selected_year else '(All Years)'} {f'(Top {top_n})' if top_n else ''}",
         size_max=30,
         color_continuous_scale=px.colors.sequential.Viridis
     )
@@ -129,20 +126,24 @@ def create_map(selected_year=None, top_n=None):
     )
 
     fig.update_layout(
-        margin={"r": 0, "t": 40, "l": 0, "b": 0},
-        height=1000  # Increased height for bigger map
+        margin={"r": 0, "t": 20, "l": 0, "b": 0},
+        height=900,  # Use more vertical space
+        coloraxis_colorbar=dict(title="Total Passengers")
     )
 
     return fig
 
-# 5. Display Map
+# Main layout: title and map side by side
+st.markdown("<h1 style='margin-bottom: -30px;'>Air Passenger Traffic by City</h1>", unsafe_allow_html=True)
+st.caption(f"Passenger Traffic by City {'in ' + str(selected_year) if selected_year != 'All Years' else '(All Years)'}")
+
 with st.spinner("Generating map..."):
     year_val = None if selected_year == 'All Years' else selected_year
     topn_val = None if selected_topn == 'All Cities' else selected_topn
     fig = create_map(year_val, topn_val)
     st.plotly_chart(fig, use_container_width=True)
 
-# 6. Info
+# Info
 st.markdown("""
 - Use the sidebar to filter by year and number of top cities.
 - Bubble size represents total passenger volume.
