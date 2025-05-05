@@ -92,7 +92,8 @@ data = data.sort_values('Total Passengers', ascending=False)
 data['Rank'] = data['Total Passengers'].rank(method='min', ascending=False).astype(int)
 
 if top_n != "All":
-    data = data.head(int(top_n))
+    n = int(top_n.split()[1])  # Extract number from string like "Top 10"
+    data = data.head(n)
 
 data['hover_text'] = data.apply(
     lambda x: f"<b>#{x['Rank']} {x['Origin City Name']}, {x['state']}</b><br>"
