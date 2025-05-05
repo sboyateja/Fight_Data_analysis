@@ -1,17 +1,17 @@
+import streamlit as st
+st.set_page_config(page_title="Air Passenger Traffic Map", layout="wide")
+
 import pandas as pd
 import plotly.express as px
-import streamlit as st
 
 # 1. Load and clean data
 @st.cache_data
-def load_data():
+def load_and_prepare_data():
     df = pd.read_csv('Summary_By_Origin_Airport.csv', low_memory=False)
     airport_coords = pd.read_csv('airports_location.csv')
     fare = pd.read_csv('AverageFare_USA.csv')
 
-    # Clean fare column names
     fare.columns = fare.columns.str.strip()
-
     fare.rename(columns={
         'Airport Code': 'Origin Airport Code',
         'Average Fare ($)': 'Avg Fare',
@@ -55,29 +55,12 @@ def load_data():
 
     return df, annual_data
 
-df, annual_data = load_data()
+df, annual_data = load_and_prepare_data()
 
-# 2. Streamlit UI
-st.set_page_config(page_title="Air Passenger Traffic Map", layout="wide")
-st.title("Air Passenger Traffic by City")
-
-col1, col2 = st.columns(2)
-
-with col1:
-    year_options = ['All Years'] + sorted(df['Year'].unique().tolist())
-    selected_year = st.selectbox("Select Year:", year_options)
-
-with col2:
-    top_n_map = {
-        'Top 5': 5, 'Top 10': 10, 'Top 15': 15, 'Top 20': 20, 'Top 50': 50, 'All Cities': None
-    }
-    selected_top_n = st.selectbox("Show Top N Cities:", list(top_n_map.keys()))
-    top_n = top_n_map[selected_top_n]
-
-# 3. Map creation
+# 2. Map creation
 def create_map(selected_year=None, top_n=None):
-    if selected_year != 'All Years':
-        data = annual_data[annual_data['Year'] == int(selected_year)].copy()
+    if selected_year:
+        data = annual_data[annual_data['Year'] == selected_year].copy()
     else:
         data = annual_data.groupby(['Origin City Name', 'state', 'latitude', 'longitude']).agg({
             'Total Passengers': 'sum',
@@ -112,20 +95,61 @@ def create_map(selected_year=None, top_n=None):
         hover_name='hover_text',
         scope='usa',
         projection='albers usa',
-        title=f"Passenger Traffic by City {'in ' + str(selected_year) if selected_year != 'All Years' else '(All Years)'} {f'(Top {top_n})' if top_n else ''}",
+        title=f"Passenger Traffic by City {'in ' + str(selected_year) if selected_year else '(All Years)'} {f'(Top {top_n})' if top_n else ''}",
         size_max=30,
         color_continuous_scale=px.colors.sequential.Viridis
     )
 
-    fig.update_geos(showland=True, landcolor="rgb(240,240,240)", subunitcolor="rgb(217,217,217)")
-    fig.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0}, height=600)
+    max_annotations = 50 if top_n is None else min(top_n, 50)
+    for _, row in data.head(max_annotations).iterrows():
+        fig.add_annotation(
+            x=row['longitude'],
+            y=row['latitude'],
+            text=f"#{row['Rank']}",
+            showarrow=False,
+            font=dict(size=10, color='white'),
+            yshift=10
+        )
+
+    fig.update_geos(
+        showland=True,
+        landcolor="rgb(240, 240, 240)",
+        subunitcolor="rgb(217, 217, 217)"
+    )
+
+    fig.update_layout(
+        margin={"r": 0, "t": 40, "l": 0, "b": 0},
+        height=600
+    )
+
     return fig
 
-# 4. Display Map
+# 3. Streamlit UI
+st.title("✈️ Air Passenger Traffic by City")
+st.markdown("Explore U.S. passenger traffic trends across cities and years.")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    year_option = st.selectbox(
+        "Select Year:",
+        options=["All Years"] + sorted(df['Year'].unique().astype(str).tolist()),
+        index=0
+    )
+
+with col2:
+    top_n_option = st.selectbox(
+        "Show Top N Cities:",
+        options=[5, 10, 15, 20, 50, "All Cities"],
+        index=1
+    )
+
+selected_year = None if year_option == "All Years" else int(year_option)
+top_n = None if top_n_option == "All Cities" else top_n_option
+
 fig = create_map(selected_year, top_n)
 st.plotly_chart(fig, use_container_width=True)
 
-# 5. Info section
-with st.expander("ℹ️ Info"):
-    st.write("Bubble size represents total passenger volume.")
-    st.write("Top 50 cities are labeled when showing all cities.")
+st.info("• Use dropdowns to explore yearly and ranked passenger traffic.\n\n"
+        "• Bubble size represents total passenger volume.\n\n"
+        "• Top 50 cities are labeled when showing all cities.")
