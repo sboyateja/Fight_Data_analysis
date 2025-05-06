@@ -141,7 +141,7 @@ def create_map(selected_year=None, top_n=None):
     return fig
 
 # Main layout
-st.markdown("<h1 style='margin-bottom: -10px;'>Flight Passenger Analysis by City</h1>", unsafe_allow_html=True)
+st.markdown("🛫 Total Passengers: 825,453,925 below the map")
 st.caption(f"Passenger Traffic by City {'in ' + str(selected_year) if selected_year != 'All Years' else '(All Years)'}")
 
 # Total passengers display
