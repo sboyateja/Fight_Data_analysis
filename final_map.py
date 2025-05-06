@@ -34,10 +34,6 @@ def load_data():
     df = df.dropna(subset=['Year'])
     df['Year'] = df['Year'].astype(int)
 
-    # Extract State from "Origin City Name" assuming format "City, ST"
-    df[['City', 'State']] = df['Origin City Name'].str.extract(r'^(.*),\s*([A-Z]{2})$')
-
-    # Merge with coordinates
     df = df.merge(
         airport_coords[['code', 'latitude', 'longitude']],
         left_on='Origin Airport Code',
@@ -45,15 +41,13 @@ def load_data():
         how='left'
     ).dropna(subset=['latitude', 'longitude'])
 
-    # Merge with fare data
     df = df.merge(
         fare[['Origin Airport Code', 'Year', 'Avg Fare']],
         on=['Origin Airport Code', 'Year'],
         how='left'
     )
 
-    # Aggregate data
-    annual_data = df.groupby(['Year', 'Origin City Name', 'State', 'latitude', 'longitude']).agg({
+    annual_data = df.groupby(['Year', 'Origin City Name', 'latitude', 'longitude']).agg({
         'Total Passengers': 'sum',
         'Domestic Passengers': 'sum',
         'Outbound International Passengers': 'sum',
@@ -78,18 +72,17 @@ selected_year = st.sidebar.selectbox("Select Year", options=year_options)
 topn_options = ['All Cities', "Top 5", "Top 10", "Top 15", "Top 20", "Top 50"]
 selected_topn = st.sidebar.selectbox("Show Top N Cities", options=topn_options)
 
-state_options = ['All States'] + sorted(df['State'].dropna().unique())
-selected_state = st.sidebar.selectbox("Select State", options=state_options)
-
-# Map creation function
-def create_map(selected_year=None, top_n=None, selected_state=None):
+# Map creation
+def create_map(selected_year=None, top_n=None):
     if selected_year:
         data = annual_data[annual_data['Year'] == int(selected_year)].copy()
     else:
-        data = annual_data.copy()
-
-    if selected_state and selected_state != 'All States':
-        data = data[data['State'] == selected_state]
+        data = annual_data.groupby(['Origin City Name', 'latitude', 'longitude']).agg({
+            'Total Passengers': 'sum',
+            'Domestic Passengers': 'sum',
+            'Outbound International Passengers': 'sum',
+            'Avg Fare': 'mean'
+        }).reset_index()
 
     data = data.sort_values('Total Passengers', ascending=False)
     data['Rank'] = data['Total Passengers'].rank(method='min', ascending=False).astype(int)
@@ -99,9 +92,8 @@ def create_map(selected_year=None, top_n=None, selected_state=None):
 
     data['Avg Fare'] = data['Avg Fare'].fillna(100)
 
-    # Add state to hover text
     data['hover_text'] = data.apply(
-        lambda x: f"<b>#{x['Rank']} {x['Origin City Name']}, {x['State']}</b><br>"
+        lambda x: f"<b>#{x['Rank']} {x['Origin City Name']}</b><br>"
                   f"Total: {x['Total Passengers']:,.0f}<br>"
                   f"Domestic: {x['Domestic Passengers']:,.0f}<br>"
                   f"International: {x['Outbound International Passengers']:,.0f}<br>"
@@ -141,28 +133,25 @@ def create_map(selected_year=None, top_n=None, selected_state=None):
 
     fig.update_layout(
         margin={"r": 0, "t": 20, "l": 0, "b": 0},
-        height=650,
+        height=650,  # Increased map height
         coloraxis_colorbar=dict(title="Total Passengers")
     )
 
     return fig
 
-# Main content
+# Main layout
 st.markdown("<h1 style='margin-bottom: -30px;'>Air Passenger Traffic by City</h1>", unsafe_allow_html=True)
-subtitle = f"Passenger Traffic {'in ' + str(selected_year) if selected_year != 'All Years' else '(All Years)'}"
-if selected_state != 'All States':
-    subtitle += f" — {selected_state}"
-st.caption(subtitle)
+st.caption(f"Passenger Traffic by City {'in ' + str(selected_year) if selected_year != 'All Years' else '(All Years)'}")
 
 with st.spinner("Generating map..."):
     year_val = None if selected_year == 'All Years' else selected_year
     topn_val = parse_topn(selected_topn)
-    fig = create_map(year_val, topn_val, selected_state)
+    fig = create_map(year_val, topn_val)
     st.plotly_chart(fig, use_container_width=True)
 
 # Info
 st.markdown("""
-- Use the sidebar to filter by year, state, and number of top cities.
+- Use the sidebar to filter by year and number of top cities.
 - Bubble size represents total passenger volume.
 - Top 50 cities are labeled when "All Cities" is selected.
 """)
