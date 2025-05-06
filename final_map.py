@@ -2,6 +2,9 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+# Must be the first Streamlit command
+st.set_page_config(page_title="Air Passenger Traffic by City", layout="wide")
+
 # 1. Load and clean data
 @st.cache_data
 def load_data():
@@ -97,7 +100,6 @@ def create_map(selected_year=None, top_n=None):
         color_continuous_scale=px.colors.sequential.Viridis
     )
 
-    # Annotate top 50
     max_annotations = 50 if top_n is None else min(top_n, 50)
     for _, row in data.head(max_annotations).iterrows():
         fig.add_annotation(
@@ -121,8 +123,7 @@ def create_map(selected_year=None, top_n=None):
     )
     return fig
 
-# 3. Streamlit App Layout
-st.set_page_config(page_title="Air Passenger Traffic by City", layout="wide")
+# 3. Streamlit UI
 st.title("Air Passenger Traffic by City")
 
 col1, col2 = st.columns(2)
@@ -142,10 +143,8 @@ with col2:
     topn_label = st.selectbox("Show Top N Cities", options=list(topn_labels.keys()), index=1)
     top_n = topn_labels[topn_label]
 
-# Convert year option
 selected_year = None if year_option == "All Years" else year_option
 
-# Display map
 fig = create_map(selected_year, top_n)
 st.plotly_chart(fig, use_container_width=True)
 
