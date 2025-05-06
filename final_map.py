@@ -2,10 +2,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-# Set full width layout
-st.set_page_config(layout="wide")
-
-# Load and clean data
+# 1. Load and clean data
 @st.cache_data
 def load_data():
     df = pd.read_csv('Summary_By_Origin_Airport.csv', low_memory=False)
@@ -35,7 +32,7 @@ def load_data():
     df['Year'] = df['Year'].astype(int)
 
     df = df.merge(
-        airport_coords[['code', 'latitude', 'longitude']],
+        airport_coords[['code', 'latitude', 'longitude', 'state']],
         left_on='Origin Airport Code',
         right_on='code',
         how='left'
@@ -47,37 +44,23 @@ def load_data():
         how='left'
     )
 
-    annual_data = df.groupby(['Year', 'Origin City Name', 'latitude', 'longitude']).agg({
+    annual_data = df.groupby(['Year', 'Origin City Name', 'state', 'latitude', 'longitude']).agg({
         'Total Passengers': 'sum',
         'Domestic Passengers': 'sum',
         'Outbound International Passengers': 'sum',
         'Avg Fare': 'mean'
     }).reset_index()
 
-    return df, annual_data
+    return annual_data, sorted(df['Year'].unique())
 
-# Helper to parse "Top N"
-def parse_topn(value):
-    if isinstance(value, str) and value.startswith("Top"):
-        return int(value.replace("Top", "").strip())
-    return None
+annual_data, years = load_data()
 
-df, annual_data = load_data()
-
-# Sidebar filters
-st.sidebar.header("Filters")
-year_options = ['All Years'] + sorted(df['Year'].unique().astype(str).tolist())
-selected_year = st.sidebar.selectbox("Select Year", options=year_options)
-
-topn_options = ['All Cities', "Top 5", "Top 10", "Top 15", "Top 20", "Top 50"]
-selected_topn = st.sidebar.selectbox("Show Top N Cities", options=topn_options)
-
-# Map creation
+# 2. Map creation function
 def create_map(selected_year=None, top_n=None):
     if selected_year:
-        data = annual_data[annual_data['Year'] == int(selected_year)].copy()
+        data = annual_data[annual_data['Year'] == selected_year].copy()
     else:
-        data = annual_data.groupby(['Origin City Name', 'latitude', 'longitude']).agg({
+        data = annual_data.groupby(['Origin City Name', 'state', 'latitude', 'longitude']).agg({
             'Total Passengers': 'sum',
             'Domestic Passengers': 'sum',
             'Outbound International Passengers': 'sum',
@@ -86,14 +69,13 @@ def create_map(selected_year=None, top_n=None):
 
     data = data.sort_values('Total Passengers', ascending=False)
     data['Rank'] = data['Total Passengers'].rank(method='min', ascending=False).astype(int)
-
     if top_n:
         data = data.head(top_n)
 
     data['Avg Fare'] = data['Avg Fare'].fillna(100)
 
     data['hover_text'] = data.apply(
-        lambda x: f"<b>#{x['Rank']} {x['Origin City Name']}</b><br>"
+        lambda x: f"<b>#{x['Rank']} {x['Origin City Name']}, {x['state']}</b><br>"
                   f"Total: {x['Total Passengers']:,.0f}<br>"
                   f"Domestic: {x['Domestic Passengers']:,.0f}<br>"
                   f"International: {x['Outbound International Passengers']:,.0f}<br>"
@@ -110,11 +92,13 @@ def create_map(selected_year=None, top_n=None):
         hover_name='hover_text',
         scope='usa',
         projection='albers usa',
+        title=f"Passenger Traffic by City {'in ' + str(selected_year) if selected_year else '(All Years)'} {f'(Top {top_n})' if top_n else ''}",
         size_max=30,
         color_continuous_scale=px.colors.sequential.Viridis
     )
 
-    max_annotations = min(len(data), 50)
+    # Annotate top 50
+    max_annotations = 50 if top_n is None else min(top_n, 50)
     for _, row in data.head(max_annotations).iterrows():
         fig.add_annotation(
             x=row['longitude'],
@@ -132,26 +116,41 @@ def create_map(selected_year=None, top_n=None):
     )
 
     fig.update_layout(
-        margin={"r": 0, "t": 20, "l": 0, "b": 0},
-        height=650,  # Increased map height
-        coloraxis_colorbar=dict(title="Total Passengers")
+        margin={"r": 0, "t": 40, "l": 0, "b": 0},
+        height=600
     )
-
     return fig
 
-# Main layout
-st.markdown("<h1 style='margin-bottom: -30px;'>Air Passenger Traffic by City</h1>", unsafe_allow_html=True)
-st.caption(f"Passenger Traffic by City {'in ' + str(selected_year) if selected_year != 'All Years' else '(All Years)'}")
+# 3. Streamlit App Layout
+st.set_page_config(page_title="Air Passenger Traffic by City", layout="wide")
+st.title("Air Passenger Traffic by City")
 
-with st.spinner("Generating map..."):
-    year_val = None if selected_year == 'All Years' else selected_year
-    topn_val = parse_topn(selected_topn)
-    fig = create_map(year_val, topn_val)
-    st.plotly_chart(fig, use_container_width=True)
+col1, col2 = st.columns(2)
 
-# Info
+with col1:
+    year_option = st.selectbox("Select Year", options=["All Years"] + years, index=0)
+
+with col2:
+    topn_labels = {
+        "Top 5": 5,
+        "Top 10": 10,
+        "Top 15": 15,
+        "Top 20": 20,
+        "Top 50": 50,
+        "All Cities": None
+    }
+    topn_label = st.selectbox("Show Top N Cities", options=list(topn_labels.keys()), index=1)
+    top_n = topn_labels[topn_label]
+
+# Convert year option
+selected_year = None if year_option == "All Years" else year_option
+
+# Display map
+fig = create_map(selected_year, top_n)
+st.plotly_chart(fig, use_container_width=True)
+
 st.markdown("""
-- Use the sidebar to filter by year and number of top cities.
-- Bubble size represents total passenger volume.
-- Top 50 cities are labeled when "All Cities" is selected.
+- Use the dropdowns to filter the data by year and top cities.
+- Bubble size represents **total passenger volume**.
+- Top 50 cities are labeled when showing all.
 """)
