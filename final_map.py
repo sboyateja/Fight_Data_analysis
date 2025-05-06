@@ -12,7 +12,9 @@ def load_data():
     airport_coords = pd.read_csv('airports_location.csv')
     fare = pd.read_csv('AverageFare_USA.csv')
 
+    airport_coords.columns = airport_coords.columns.str.strip()
     fare.columns = fare.columns.str.strip()
+
     fare.rename(columns={
         'Airport Code': 'Origin Airport Code',
         'Average Fare ($)': 'Avg Fare',
@@ -34,12 +36,8 @@ def load_data():
     df = df.dropna(subset=['Year'])
     df['Year'] = df['Year'].astype(int)
 
-    # Extract State from "Origin City Name" assuming format "City, ST"
-    df[['City', 'State']] = df['Origin City Name'].str.extract(r'^(.*),\s*([A-Z]{2})$')
-    df['City State'] = df['City'].str.strip() + ", " + df['State'].str.strip()
-
     df = df.merge(
-        airport_coords[['code', 'latitude', 'longitude']],
+        airport_coords[['code', 'latitude', 'longitude', 'state']],
         left_on='Origin Airport Code',
         right_on='code',
         how='left'
@@ -51,54 +49,68 @@ def load_data():
         how='left'
     )
 
-    annual_data = df.groupby(['Year', 'City State', 'latitude', 'longitude']).agg({
+    df['Origin City Name'] = df['Origin City Name'].str.strip()
+
+    annual_data = df.groupby(['Year', 'Origin City Name', 'state', 'latitude', 'longitude']).agg({
         'Total Passengers': 'sum',
         'Domestic Passengers': 'sum',
         'Outbound International Passengers': 'sum',
         'Avg Fare': 'mean'
     }).reset_index()
 
-    return df, annual_data
+    state_agg = df.groupby(['Year', 'state']).agg({'Total Passengers': 'sum'}).reset_index()
 
-# Helper
+    return df, annual_data, state_agg, airport_coords
+
+# Helper to parse "Top N"
 def parse_topn(value):
     if isinstance(value, str) and value.startswith("Top"):
         return int(value.replace("Top", "").strip())
     return None
 
-df, annual_data = load_data()
+df, annual_data, state_agg, airport_coords = load_data()
 
 # Sidebar filters
 st.sidebar.header("Filters")
 year_options = ['All Years'] + sorted(df['Year'].unique().astype(str).tolist())
 selected_year = st.sidebar.selectbox("Select Year", options=year_options)
-
+selected_state = st.sidebar.selectbox("Filter by State", options=['All States'] + sorted(airport_coords['state'].dropna().unique()))
 topn_options = ['All Cities', "Top 5", "Top 10", "Top 15", "Top 20", "Top 50"]
 selected_topn = st.sidebar.selectbox("Show Top N Cities", options=topn_options)
 
-# Map function
-def create_map(selected_year=None, top_n=None):
+# Map creation
+def create_map(selected_year=None, top_n=None, selected_state=None):
     if selected_year:
         data = annual_data[annual_data['Year'] == int(selected_year)].copy()
     else:
-        data = annual_data.groupby(['City State', 'latitude', 'longitude']).agg({
+        data = annual_data.groupby(['Origin City Name', 'state', 'latitude', 'longitude']).agg({
             'Total Passengers': 'sum',
             'Domestic Passengers': 'sum',
             'Outbound International Passengers': 'sum',
             'Avg Fare': 'mean'
         }).reset_index()
 
+    if selected_state and selected_state != 'All States':
+        data = data[data['state'] == selected_state]
+
     data = data.sort_values('Total Passengers', ascending=False)
     data['Rank'] = data['Total Passengers'].rank(method='min', ascending=False).astype(int)
 
     if top_n:
-        data = data.head(top_n)
+        # Always include key cities if they exist
+        must_include_cities = ['Atlanta', 'Chicago', 'Los Angeles']
+        top_data = data.head(top_n)
+        for city in must_include_cities:
+            city_row = data[data['Origin City Name'].str.contains(city, case=False, na=False)]
+            if not city_row.empty:
+                top_data = pd.concat([top_data, city_row]).drop_duplicates()
+        data = top_data
 
     data['Avg Fare'] = data['Avg Fare'].fillna(100)
 
-    # Hover text with City, State
     data['hover_text'] = data.apply(
-        lambda x: f"<b>#{x['Rank']} {x['City State']}</b><br>"
+        lambda x: f"<b>#{x['Rank']} {x['Origin City Name']}</b><br>"
+                  f"State: {x['state']}<br>"
                   f"Total: {x['Total Passengers']:,.0f}<br>"
                   f"Domestic: {x['Domestic Passengers']:,.0f}<br>"
                   f"International: {x['Outbound International Passengers']:,.0f}<br>"
@@ -119,23 +131,7 @@ def create_map(selected_year=None, top_n=None):
         color_continuous_scale=px.colors.sequential.Viridis
     )
 
-    max_annotations = min(len(data), 50)
-    for _, row in data.head(max_annotations).iterrows():
-        fig.add_annotation(
-            x=row['longitude'],
-            y=row['latitude'],
-            text=f"#{row['Rank']}",
-            showarrow=False,
-            font=dict(size=10, color='white'),
-            yshift=10
-        )
-
-    fig.update_geos(
-        showland=True,
-        landcolor="rgb(240, 240, 240)",
-        subunitcolor="rgb(217, 217, 217)"
-    )
-
+    fig.update_geos(showland=True, landcolor="rgb(240, 240, 240)", subunitcolor="rgb(217, 217, 217)")
     fig.update_layout(
         margin={"r": 0, "t": 20, "l": 0, "b": 0},
         height=650,
@@ -144,18 +140,38 @@ def create_map(selected_year=None, top_n=None):
 
     return fig
 
-# App layout
+# Main layout
 st.markdown("<h1 style='margin-bottom: -30px;'>Air Passenger Traffic by City</h1>", unsafe_allow_html=True)
-st.caption(f"Passenger Traffic by City {'in ' + str(selected_year) if selected_year != 'All Years' else '(All Years)'}")
+st.caption(f"Passenger Traffic {'in ' + str(selected_year) if selected_year != 'All Years' else '(All Years)'}")
 
 with st.spinner("Generating map..."):
     year_val = None if selected_year == 'All Years' else selected_year
     topn_val = parse_topn(selected_topn)
-    fig = create_map(year_val, topn_val)
+    fig = create_map(year_val, topn_val, selected_state)
     st.plotly_chart(fig, use_container_width=True)
 
+# State totals chart
+st.subheader("Total Passengers by State")
+if selected_year == 'All Years':
+    state_plot_data = state_agg.groupby('state')['Total Passengers'].sum().sort_values(ascending=False).reset_index()
+else:
+    state_plot_data = state_agg[state_agg['Year'] == int(selected_year)].sort_values('Total Passengers', ascending=False)
+
+bar_fig = px.bar(
+    state_plot_data,
+    x='state',
+    y='Total Passengers',
+    labels={'Total Passengers': 'Total Passengers'},
+    title=f"Total Passengers by State in {selected_year}" if selected_year != 'All Years' else "Total Passengers by State (All Years)",
+    color='Total Passengers'
+)
+bar_fig.update_layout(xaxis_tickangle=-45)
+st.plotly_chart(bar_fig, use_container_width=True)
+
+# Info
 st.markdown("""
-- Use the sidebar to filter by year and number of top cities.
+- Use the sidebar to filter by year, state, and number of top cities.
 - Bubble size represents total passenger volume.
-- Top 50 cities are labeled when "All Cities" is selected.
+- Top cities are labeled based on volume.
+- Atlanta, Chicago, and Los Angeles are always shown on the map if available.
 """)
