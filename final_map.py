@@ -62,7 +62,6 @@ def parse_topn(value):
         return int(value.replace("Top", "").strip())
     return None
 
-# Load data
 df, annual_data = load_data()
 
 # Sidebar filters
@@ -138,7 +137,7 @@ def create_map(selected_year=None, top_n=None):
         coloraxis_colorbar=dict(title="Total Passengers")
     )
 
-    return fig
+    return fig, data
 
 # Main layout
 st.markdown("<h1 style='margin-bottom: -10px;'>Passenger Traffic by City in the Flights</h1>", unsafe_allow_html=True)
@@ -155,29 +154,48 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Generate map
+# Map generation
 with st.spinner("Generating map..."):
     year_val = None if selected_year == 'All Years' else selected_year
     topn_val = parse_topn(selected_topn)
-    fig = create_map(year_val, topn_val)
-    st.plotly_chart(fig, use_container_width=True)
+    fig_map, filtered_data = create_map(year_val, topn_val)
+    st.plotly_chart(fig_map, use_container_width=True)
 
-# Line chart: Highest Average Fare by Year and City
-st.markdown("### 💰 Cities with Highest Average Fare Over Time")
+# Info section
+st.markdown("""
+- Use the sidebar to filter by year and number of top cities.
+- Bubble size represents total passenger volume.
+- It shows top cities in order of passenger traffic.
+""")
 
-# Determine top fare cities by selected year or overall
-if selected_year != 'All Years':
-    top_fare_cities = annual_data[annual_data['Year'] == int(selected_year)] \
-        .sort_values('Avg Fare', ascending=False) \
-        .dropna(subset=['Avg Fare']) \
-        .head(5)['Origin City Name'].tolist()
+# Bar chart: Total Passengers by City
+st.markdown("### 📊 Total Passengers by City")
+bar_data = filtered_data.sort_values('Total Passengers', ascending=False)
+fig_bar = px.bar(
+    bar_data,
+    x='Origin City Name',
+    y='Total Passengers',
+    color='Total Passengers',
+    color_continuous_scale='Viridis',
+    title='Total Passengers by City',
+    labels={'Total Passengers': 'Passengers', 'Origin City Name': 'City'},
+)
+fig_bar.update_layout(xaxis_tickangle=-45, height=500, margin=dict(t=50, b=150))
+st.plotly_chart(fig_bar, use_container_width=True)
+
+# Line chart: Average Fare by Year for Selected Cities
+st.markdown("### 💰 Average Fare by Year and City")
+
+# Determine which cities to plot
+if topn_val:
+    cities = filtered_data['Origin City Name'].tolist()
 else:
-    top_fare_cities = annual_data.groupby('Origin City Name')['Avg Fare'].mean() \
-        .sort_values(ascending=False) \
-        .dropna() \
-        .head(5).index.tolist()
+    # if "All Cities", pick the top 5 overall by passenger volume
+    top5_overall = annual_data.groupby('Origin City Name')['Total Passengers'].sum() \
+                              .nlargest(5).index.tolist()
+    cities = top5_overall
 
-fare_trend = annual_data[annual_data['Origin City Name'].isin(top_fare_cities)]
+fare_trend = annual_data[annual_data['Origin City Name'].isin(cities)]
 
 fig_fare = px.line(
     fare_trend,
@@ -185,16 +203,8 @@ fig_fare = px.line(
     y='Avg Fare',
     color='Origin City Name',
     markers=True,
-    title='Top 5 Cities with Highest Average Fare Over Time',
+    title='Average Fare by Year for Selected Cities',
     labels={'Avg Fare': 'Average Fare ($)', 'Year': 'Year'}
 )
 fig_fare.update_layout(height=500, margin=dict(t=50, b=50))
 st.plotly_chart(fig_fare, use_container_width=True)
-
-# Info section
-st.markdown("""
-- Use the sidebar to filter by year and number of top cities.
-- Bubble size represents total passenger volume.
-- The map highlights city rankings by total passenger traffic.
-- The line chart below shows cities with the highest average fares.
-""")
