@@ -145,8 +145,8 @@ def create_map(selected_year=None, top_n=None, selected_city=None):
     return fig, data
 
 # Main layout
-st.markdown("<h1 style='margin-bottom: -10px;'>Passenger Traffic by City in the Flights</h1>", unsafe_allow_html=True)
-st.caption(f"Passenger Traffic by City {'in ' + str(selected_year) if selected_year != 'All Years' else '(All Years)'}")
+st.markdown("<h1 style='margin-bottom: -10px;'>Passengers Travelling by City in the Flights</h1>", unsafe_allow_html=True)
+st.caption(f"Passengers Travelling by City {'in ' + str(selected_year) if selected_year != 'All Years' else '(All Years)'}")
 
 # Total passengers display
 if selected_year != 'All Years':
