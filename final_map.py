@@ -34,6 +34,10 @@ def load_data():
     df = df.dropna(subset=['Year'])
     df['Year'] = df['Year'].astype(int)
 
+    # Extract State from "Origin City Name" assuming format "City, ST"
+    df[['City', 'State']] = df['Origin City Name'].str.extract(r'^(.*),\s*([A-Z]{2})$')
+    df['City State'] = df['City'].str.strip() + ", " + df['State'].str.strip()
+
     df = df.merge(
         airport_coords[['code', 'latitude', 'longitude']],
         left_on='Origin Airport Code',
@@ -47,7 +51,7 @@ def load_data():
         how='left'
     )
 
-    annual_data = df.groupby(['Year', 'Origin City Name', 'latitude', 'longitude']).agg({
+    annual_data = df.groupby(['Year', 'City State', 'latitude', 'longitude']).agg({
         'Total Passengers': 'sum',
         'Domestic Passengers': 'sum',
         'Outbound International Passengers': 'sum',
@@ -56,7 +60,7 @@ def load_data():
 
     return df, annual_data
 
-# Helper to parse "Top N"
+# Helper
 def parse_topn(value):
     if isinstance(value, str) and value.startswith("Top"):
         return int(value.replace("Top", "").strip())
@@ -72,12 +76,12 @@ selected_year = st.sidebar.selectbox("Select Year", options=year_options)
 topn_options = ['All Cities', "Top 5", "Top 10", "Top 15", "Top 20", "Top 50"]
 selected_topn = st.sidebar.selectbox("Show Top N Cities", options=topn_options)
 
-# Map creation
+# Map function
 def create_map(selected_year=None, top_n=None):
     if selected_year:
         data = annual_data[annual_data['Year'] == int(selected_year)].copy()
     else:
-        data = annual_data.groupby(['Origin City Name', 'latitude', 'longitude']).agg({
+        data = annual_data.groupby(['City State', 'latitude', 'longitude']).agg({
             'Total Passengers': 'sum',
             'Domestic Passengers': 'sum',
             'Outbound International Passengers': 'sum',
@@ -92,8 +96,9 @@ def create_map(selected_year=None, top_n=None):
 
     data['Avg Fare'] = data['Avg Fare'].fillna(100)
 
+    # Hover text with City, State
     data['hover_text'] = data.apply(
-        lambda x: f"<b>#{x['Rank']} {x['Origin City Name']}</b><br>"
+        lambda x: f"<b>#{x['Rank']} {x['City State']}</b><br>"
                   f"Total: {x['Total Passengers']:,.0f}<br>"
                   f"Domestic: {x['Domestic Passengers']:,.0f}<br>"
                   f"International: {x['Outbound International Passengers']:,.0f}<br>"
@@ -133,13 +138,13 @@ def create_map(selected_year=None, top_n=None):
 
     fig.update_layout(
         margin={"r": 0, "t": 20, "l": 0, "b": 0},
-        height=650,  # Increased map height
+        height=650,
         coloraxis_colorbar=dict(title="Total Passengers")
     )
 
     return fig
 
-# Main layout
+# App layout
 st.markdown("<h1 style='margin-bottom: -30px;'>Air Passenger Traffic by City</h1>", unsafe_allow_html=True)
 st.caption(f"Passenger Traffic by City {'in ' + str(selected_year) if selected_year != 'All Years' else '(All Years)'}")
 
@@ -149,7 +154,6 @@ with st.spinner("Generating map..."):
     fig = create_map(year_val, topn_val)
     st.plotly_chart(fig, use_container_width=True)
 
-# Info
 st.markdown("""
 - Use the sidebar to filter by year and number of top cities.
 - Bubble size represents total passenger volume.
