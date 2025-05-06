@@ -212,5 +212,5 @@ fig_fare = px.line(
     title='Average Fare by Year for Selected Cities',
     labels={'Avg Fare': 'Average Fare ($)', 'Year': 'Year'}
 )
-fig_fare.update_layout(height=500, margin=dict(t=50, b50))
+fig_fare.update_layout(height=500, margin=dict(t=50, b=50))
 st.plotly_chart(fig_fare, use_container_width=True)
