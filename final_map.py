@@ -165,5 +165,5 @@ with st.spinner("Generating map..."):
 st.markdown("""
 - Use the sidebar to filter by year and number of top cities.
 - Bubble size represents total passenger volume.
-- Top 50 cities are labeled when "All Cities" is selected.
+- it shows top cities by the particular numbers in order in label in top.
 """)
