@@ -19,6 +19,7 @@ def load_data():
         'Average Fare ($)': 'Avg Fare',
         'Inflation Adjusted Average Fare ($)': 'Adj Avg Fare'
     }, inplace=True)
+
     fare['Avg Fare'] = fare['Avg Fare'].astype(str).str.replace(r'[\$,]', '', regex=True)
     fare['Adj Avg Fare'] = fare['Adj Avg Fare'].astype(str).str.replace(r'[\$,]', '', regex=True)
     fare['Avg Fare'] = pd.to_numeric(fare['Avg Fare'], errors='coerce')
@@ -35,7 +36,7 @@ def load_data():
     df = df.dropna(subset=['Year'])
     df['Year'] = df['Year'].astype(int)
 
-    # Merge airport coordinates
+    # Merge coordinates and fare data
     df = df.merge(
         airport_coords[['code', 'latitude', 'longitude']],
         left_on='Origin Airport Code',
@@ -43,19 +44,18 @@ def load_data():
         how='left'
     ).dropna(subset=['latitude', 'longitude'])
 
-    # Merge fare data
     df = df.merge(
         fare[['Origin Airport Code', 'Year', 'Avg Fare']],
         on=['Origin Airport Code', 'Year'],
         how='left'
     )
 
-    # Extract state
+    # Extract State
     df[['City', 'State']] = df['Origin City Name'].str.extract(r'^(.*),\s*([A-Z]{2})$')
     df['City State'] = df['City'] + ', ' + df['State']
 
-    # Aggregate annual data
-    annual_data = df.groupby(['Year', 'City State', 'State', 'latitude', 'longitude']).agg({
+    # Aggregate data
+    annual_data = df.groupby(['Year', 'Origin City Name', 'City', 'State', 'latitude', 'longitude']).agg({
         'Total Passengers': 'sum',
         'Domestic Passengers': 'sum',
         'Outbound International Passengers': 'sum',
@@ -81,12 +81,12 @@ selected_year = st.sidebar.selectbox("Select Year", options=year_options)
 topn_options = ['All Cities', "Top 5", "Top 10", "Top 15", "Top 20", "Top 50"]
 selected_topn = st.sidebar.selectbox("Show Top N Cities", options=topn_options)
 
-# Create map
+# Map creation
 def create_map(selected_year=None, top_n=None):
     if selected_year:
         data = annual_data[annual_data['Year'] == int(selected_year)].copy()
     else:
-        data = annual_data.groupby(['City State', 'State', 'latitude', 'longitude']).agg({
+        data = annual_data.groupby(['Origin City Name', 'City', 'State', 'latitude', 'longitude']).agg({
             'Total Passengers': 'sum',
             'Domestic Passengers': 'sum',
             'Outbound International Passengers': 'sum',
@@ -103,7 +103,7 @@ def create_map(selected_year=None, top_n=None):
 
     # Add hover text with state
     data['hover_text'] = data.apply(
-        lambda x: f"<b>#{x['Rank']} {x['City State']}</b><br>"
+        lambda x: f"<b>#{x['Rank']} {x['Origin City Name']}</b><br>"
                   f"State: {x['State']}<br>"
                   f"Total: {x['Total Passengers']:,.0f}<br>"
                   f"Domestic: {x['Domestic Passengers']:,.0f}<br>"
@@ -125,10 +125,8 @@ def create_map(selected_year=None, top_n=None):
         custom_data=['hover_text']
     )
 
-    # Use custom hovertemplate
     fig.update_traces(hovertemplate="%{customdata[0]}<extra></extra>")
 
-    # Annotate top cities
     max_annotations = min(len(data), 50)
     for _, row in data.head(max_annotations).iterrows():
         fig.add_annotation(
