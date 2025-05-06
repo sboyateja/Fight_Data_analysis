@@ -158,8 +158,8 @@ st.markdown(
 with st.spinner("Generating map..."):
     year_val = None if selected_year == 'All Years' else selected_year
     topn_val = parse_topn(selected_topn)
-    fig, filtered_data = create_map(year_val, topn_val)
-    st.plotly_chart(fig, use_container_width=True)
+    fig_map, filtered_data = create_map(year_val, topn_val)
+    st.plotly_chart(fig_map, use_container_width=True)
 
 # Info section
 st.markdown("""
@@ -168,11 +168,9 @@ st.markdown("""
 - It shows top cities in order of passenger traffic.
 """)
 
-# Bar chart below the map
+# Bar chart: Total Passengers by City
 st.markdown("### 📊 Total Passengers by City")
-
 bar_data = filtered_data.sort_values('Total Passengers', ascending=False)
-
 fig_bar = px.bar(
     bar_data,
     x='Origin City Name',
@@ -182,11 +180,31 @@ fig_bar = px.bar(
     title='Total Passengers by City',
     labels={'Total Passengers': 'Passengers', 'Origin City Name': 'City'},
 )
-
-fig_bar.update_layout(
-    xaxis_tickangle=-45,
-    height=500,
-    margin=dict(t=50, b=150),
-)
-
+fig_bar.update_layout(xaxis_tickangle=-45, height=500, margin=dict(t=50, b=150))
 st.plotly_chart(fig_bar, use_container_width=True)
+
+# Line chart: Average Fare by Year for Selected Cities
+st.markdown("### 💰 Average Fare by Year and City")
+
+# Determine which cities to plot
+if topn_val:
+    cities = filtered_data['Origin City Name'].tolist()
+else:
+    # if "All Cities", pick the top 5 overall by passenger volume
+    top5_overall = annual_data.groupby('Origin City Name')['Total Passengers'].sum() \
+                              .nlargest(5).index.tolist()
+    cities = top5_overall
+
+fare_trend = annual_data[annual_data['Origin City Name'].isin(cities)]
+
+fig_fare = px.line(
+    fare_trend,
+    x='Year',
+    y='Avg Fare',
+    color='Origin City Name',
+    markers=True,
+    title='Average Fare by Year for Selected Cities',
+    labels={'Avg Fare': 'Average Fare ($)', 'Year': 'Year'}
+)
+fig_fare.update_layout(height=500, margin=dict(t=50, b=50))
+st.plotly_chart(fig_fare, use_container_width=True)
