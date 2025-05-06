@@ -72,7 +72,7 @@ selected_year = st.sidebar.selectbox("Select Year", options=year_options)
 topn_options = ['All Cities', "Top 5", "Top 10", "Top 15", "Top 20", "Top 50"]
 selected_topn = st.sidebar.selectbox("Show Top N Cities", options=topn_options)
 
-# Map creation function
+# Map creation
 def create_map(selected_year=None, top_n=None):
     if selected_year:
         data = annual_data[annual_data['Year'] == int(selected_year)].copy()
@@ -133,31 +133,23 @@ def create_map(selected_year=None, top_n=None):
 
     fig.update_layout(
         margin={"r": 0, "t": 20, "l": 0, "b": 0},
-        height=650,
+        height=650,  # Increased map height
         coloraxis_colorbar=dict(title="Total Passengers")
     )
 
-    return fig, data
+    return fig
 
 # Main layout
-st.markdown("<h1 style='margin-bottom: -10px;'>Flight Passenger Analysis by City</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='margin-bottom: -30px;'>Air Passenger Traffic by City</h1>", unsafe_allow_html=True)
 st.caption(f"Passenger Traffic by City {'in ' + str(selected_year) if selected_year != 'All Years' else '(All Years)'}")
 
-# Map generation
 with st.spinner("Generating map..."):
     year_val = None if selected_year == 'All Years' else selected_year
     topn_val = parse_topn(selected_topn)
-    fig, filtered_data = create_map(year_val, topn_val)
+    fig = create_map(year_val, topn_val)
     st.plotly_chart(fig, use_container_width=True)
 
-# Total passengers display (moved below the map)
-total_passengers_display = int(filtered_data['Total Passengers'].sum())
-st.markdown(
-    f"<h2 style='text-align:center; color:#2ca02c;'>🛫 Total Passengers: {total_passengers_display:,.0f}</h2>",
-    unsafe_allow_html=True
-)
-
-# Info section
+# Info
 st.markdown("""
 - Use the sidebar to filter by year and number of top cities.
 - Bubble size represents total passenger volume.
