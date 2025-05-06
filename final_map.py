@@ -12,7 +12,6 @@ def load_data():
     airport_coords = pd.read_csv('airports_location.csv')
     fare = pd.read_csv('AverageFare_USA.csv')
 
-    # Clean fare data
     fare.columns = fare.columns.str.strip()
     fare.rename(columns={
         'Airport Code': 'Origin Airport Code',
@@ -25,7 +24,6 @@ def load_data():
     fare['Avg Fare'] = pd.to_numeric(fare['Avg Fare'], errors='coerce')
     fare['Adj Avg Fare'] = pd.to_numeric(fare['Adj Avg Fare'], errors='coerce')
 
-    # Clean main data
     numeric_cols = ['Total Passengers', 'Domestic Passengers', 'Outbound International Passengers']
     for col in numeric_cols:
         if df[col].dtype == object:
@@ -36,7 +34,6 @@ def load_data():
     df = df.dropna(subset=['Year'])
     df['Year'] = df['Year'].astype(int)
 
-    # Merge coordinates and fare data
     df = df.merge(
         airport_coords[['code', 'latitude', 'longitude']],
         left_on='Origin Airport Code',
@@ -50,12 +47,7 @@ def load_data():
         how='left'
     )
 
-    # Extract State
-    df[['City', 'State']] = df['Origin City Name'].str.extract(r'^(.*),\s*([A-Z]{2})$')
-    df['City State'] = df['City'] + ', ' + df['State']
-
-    # Aggregate data
-    annual_data = df.groupby(['Year', 'Origin City Name', 'City', 'State', 'latitude', 'longitude']).agg({
+    annual_data = df.groupby(['Year', 'Origin City Name', 'latitude', 'longitude']).agg({
         'Total Passengers': 'sum',
         'Domestic Passengers': 'sum',
         'Outbound International Passengers': 'sum',
@@ -70,7 +62,6 @@ def parse_topn(value):
         return int(value.replace("Top", "").strip())
     return None
 
-# Load data
 df, annual_data = load_data()
 
 # Sidebar filters
@@ -86,7 +77,7 @@ def create_map(selected_year=None, top_n=None):
     if selected_year:
         data = annual_data[annual_data['Year'] == int(selected_year)].copy()
     else:
-        data = annual_data.groupby(['Origin City Name', 'City', 'State', 'latitude', 'longitude']).agg({
+        data = annual_data.groupby(['Origin City Name', 'latitude', 'longitude']).agg({
             'Total Passengers': 'sum',
             'Domestic Passengers': 'sum',
             'Outbound International Passengers': 'sum',
@@ -101,10 +92,8 @@ def create_map(selected_year=None, top_n=None):
 
     data['Avg Fare'] = data['Avg Fare'].fillna(100)
 
-    # Add hover text with state
     data['hover_text'] = data.apply(
         lambda x: f"<b>#{x['Rank']} {x['Origin City Name']}</b><br>"
-                  f"State: {x['State']}<br>"
                   f"Total: {x['Total Passengers']:,.0f}<br>"
                   f"Domestic: {x['Domestic Passengers']:,.0f}<br>"
                   f"International: {x['Outbound International Passengers']:,.0f}<br>"
@@ -118,14 +107,12 @@ def create_map(selected_year=None, top_n=None):
         lon='longitude',
         size='Total Passengers',
         color='Total Passengers',
+        hover_name='hover_text',
         scope='usa',
         projection='albers usa',
         size_max=30,
-        color_continuous_scale=px.colors.sequential.Viridis,
-        custom_data=['hover_text']
+        color_continuous_scale=px.colors.sequential.Viridis
     )
-
-    fig.update_traces(hovertemplate="%{customdata[0]}<extra></extra>")
 
     max_annotations = min(len(data), 50)
     for _, row in data.head(max_annotations).iterrows():
@@ -146,7 +133,7 @@ def create_map(selected_year=None, top_n=None):
 
     fig.update_layout(
         margin={"r": 0, "t": 20, "l": 0, "b": 0},
-        height=650,
+        height=650,  # Increased map height
         coloraxis_colorbar=dict(title="Total Passengers")
     )
 
@@ -166,5 +153,5 @@ with st.spinner("Generating map..."):
 st.markdown("""
 - Use the sidebar to filter by year and number of top cities.
 - Bubble size represents total passenger volume.
-- Hover over a bubble to see city, state, traffic volume, and fare.
+- Top 50 cities are labeled when "All Cities" is selected.
 """)
