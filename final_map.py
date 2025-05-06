@@ -137,7 +137,7 @@ def create_map(selected_year=None, top_n=None):
         coloraxis_colorbar=dict(title="Total Passengers")
     )
 
-    return fig
+    return fig, data
 
 # Main layout
 st.markdown("<h1 style='margin-bottom: -10px;'>Passenger Traffic by City in the Flights</h1>", unsafe_allow_html=True)
@@ -158,12 +158,35 @@ st.markdown(
 with st.spinner("Generating map..."):
     year_val = None if selected_year == 'All Years' else selected_year
     topn_val = parse_topn(selected_topn)
-    fig = create_map(year_val, topn_val)
+    fig, filtered_data = create_map(year_val, topn_val)
     st.plotly_chart(fig, use_container_width=True)
 
 # Info section
 st.markdown("""
 - Use the sidebar to filter by year and number of top cities.
 - Bubble size represents total passenger volume.
-- it shows top cities by the particular numbers in order in label in top.
+- It shows top cities in order of passenger traffic.
 """)
+
+# Bar chart below the map
+st.markdown("### 📊 Total Passengers by City")
+
+bar_data = filtered_data.sort_values('Total Passengers', ascending=False)
+
+fig_bar = px.bar(
+    bar_data,
+    x='Origin City Name',
+    y='Total Passengers',
+    color='Total Passengers',
+    color_continuous_scale='Viridis',
+    title='Total Passengers by City',
+    labels={'Total Passengers': 'Passengers', 'Origin City Name': 'City'},
+)
+
+fig_bar.update_layout(
+    xaxis_tickangle=-45,
+    height=500,
+    margin=dict(t=50, b=150),
+)
+
+st.plotly_chart(fig_bar, use_container_width=True)
