@@ -1,4 +1,3 @@
-
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -73,7 +72,7 @@ selected_year = st.sidebar.selectbox("Select Year", options=year_options)
 topn_options = ['All Cities', "Top 5", "Top 10", "Top 15", "Top 20", "Top 50"]
 selected_topn = st.sidebar.selectbox("Show Top N Cities", options=topn_options)
 
-# Map creation
+# Map creation function
 def create_map(selected_year=None, top_n=None):
     if selected_year:
         data = annual_data[annual_data['Year'] == int(selected_year)].copy()
@@ -141,7 +140,7 @@ def create_map(selected_year=None, top_n=None):
     return fig
 
 # Main layout
-st.markdown("🛫 Total Passengers: 825,453,925 below the map")
+st.markdown("<h1 style='margin-bottom: -10px;'>Flight Passenger Analysis by City</h1>", unsafe_allow_html=True)
 st.caption(f"Passenger Traffic by City {'in ' + str(selected_year) if selected_year != 'All Years' else '(All Years)'}")
 
 # Total passengers display
