@@ -72,8 +72,11 @@ selected_year = st.sidebar.selectbox("Select Year", options=year_options)
 topn_options = ['All Cities', "Top 5", "Top 10", "Top 15", "Top 20", "Top 50"]
 selected_topn = st.sidebar.selectbox("Show Top N Cities", options=topn_options)
 
+city_options = ['All Cities'] + sorted(df['Origin City Name'].unique())
+selected_city = st.sidebar.selectbox("Filter by City", options=city_options)
+
 # Map creation
-def create_map(selected_year=None, top_n=None):
+def create_map(selected_year=None, top_n=None, selected_city=None):
     if selected_year:
         data = annual_data[annual_data['Year'] == int(selected_year)].copy()
     else:
@@ -84,12 +87,14 @@ def create_map(selected_year=None, top_n=None):
             'Avg Fare': 'mean'
         }).reset_index()
 
-    data = data.sort_values('Total Passengers', ascending=False)
+    if selected_city and selected_city != 'All Cities':
+        data = data[data['Origin City Name'] == selected_city]
+    elif top_n:
+        data = data.sort_values('Total Passengers', ascending=False).head(top_n)
+    else:
+        data = data.sort_values('Total Passengers', ascending=False)
+
     data['Rank'] = data['Total Passengers'].rank(method='min', ascending=False).astype(int)
-
-    if top_n:
-        data = data.head(top_n)
-
     data['Avg Fare'] = data['Avg Fare'].fillna(100)
 
     data['hover_text'] = data.apply(
@@ -157,13 +162,13 @@ st.markdown(
 # Map generation
 with st.spinner("Generating map..."):
     year_val = None if selected_year == 'All Years' else selected_year
-    topn_val = parse_topn(selected_topn)
-    fig_map, filtered_data = create_map(year_val, topn_val)
+    topn_val = parse_topn(selected_topn) if selected_city == 'All Cities' else None
+    fig_map, filtered_data = create_map(year_val, topn_val, selected_city)
     st.plotly_chart(fig_map, use_container_width=True)
 
 # Info section
 st.markdown("""
-- Use the sidebar to filter by year and number of top cities.
+- Use the sidebar to filter by year, city, or number of top cities.
 - Bubble size represents total passenger volume.
 - It shows top cities in order of passenger traffic.
 """)
@@ -183,14 +188,15 @@ fig_bar = px.bar(
 fig_bar.update_layout(xaxis_tickangle=-45, height=500, margin=dict(t=50, b=150))
 st.plotly_chart(fig_bar, use_container_width=True)
 
-# Line chart: Average Fare by Year for Selected Cities
+# Li chart: Average Fare by Year for Selected Cities
 st.markdown("### 💰 Average Fare by Year and City")
 
 # Determine which cities to plot
-if topn_val:
+if selected_city != 'All Cities':
+    cities = [selected_city]
+elif topn_val:
     cities = filtered_data['Origin City Name'].tolist()
 else:
-    # if "All Cities", pick the top 5 overall by passenger volume
     top5_overall = annual_data.groupby('Origin City Name')['Total Passengers'].sum() \
                               .nlargest(5).index.tolist()
     cities = top5_overall
@@ -206,5 +212,5 @@ fig_fare = px.line(
     title='Average Fare by Year for Selected Cities',
     labels={'Avg Fare': 'Average Fare ($)', 'Year': 'Year'}
 )
-fig_fare.update_layout(height=500, margin=dict(t=50, b=50))
+fig_fare.update_layout(height=500, margin=dict(t=50, b50))
 st.plotly_chart(fig_fare, use_container_width=True)
