@@ -137,29 +137,25 @@ def create_map(selected_year=None, top_n=None):
         coloraxis_colorbar=dict(title="Total Passengers")
     )
 
-    return fig
+    return fig, data
 
 # Main layout
 st.markdown("<h1 style='margin-bottom: -10px;'>Flight Passenger Analysis by City</h1>", unsafe_allow_html=True)
 st.caption(f"Passenger Traffic by City {'in ' + str(selected_year) if selected_year != 'All Years' else '(All Years)'}")
 
-# Total passengers display
-if selected_year != 'All Years':
-    total_passengers_display = int(df[df['Year'] == int(selected_year)]['Total Passengers'].sum())
-else:
-    total_passengers_display = int(df['Total Passengers'].sum())
-
-st.markdown(
-    f"<h2 style='text-align:center; color:#2ca02c;'>🛫 Total Passengers: {total_passengers_display:,.0f}</h2>",
-    unsafe_allow_html=True
-)
-
 # Map generation
 with st.spinner("Generating map..."):
     year_val = None if selected_year == 'All Years' else selected_year
     topn_val = parse_topn(selected_topn)
-    fig = create_map(year_val, topn_val)
+    fig, filtered_data = create_map(year_val, topn_val)
     st.plotly_chart(fig, use_container_width=True)
+
+# Total passengers display (moved below the map)
+total_passengers_display = int(filtered_data['Total Passengers'].sum())
+st.markdown(
+    f"<h2 style='text-align:center; color:#2ca02c;'>🛫 Total Passengers: {total_passengers_display:,.0f}</h2>",
+    unsafe_allow_html=True
+)
 
 # Info section
 st.markdown("""
